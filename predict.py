@@ -102,25 +102,31 @@ def main():
     detector = CurveDetector()
     detector.load_model(args.model_path)
 
-    # 获取测试图片
+    # 获取测试图片（支持test目录下的所有子目录）
     test_images = []
-    for filename in os.listdir(args.test_dir):
-        if filename.lower().endswith((".png", ".jpg", ".jpeg", ".bmp", ".webp")):
-            test_images.append(filename)
+    valid_extensions = ('.png', '.jpg', '.jpeg', '.bmp', '.webp')
+
+    # 遍历test目录及其所有子目录
+    for root, dirs, files in os.walk(args.test_dir):
+        for filename in files:
+            if filename.lower().endswith(valid_extensions):
+                # 获取完整路径
+                full_path = os.path.join(root, filename)
+                # 获取相对于test_dir的路径，用于显示
+                rel_path = os.path.relpath(full_path, args.test_dir)
+                test_images.append((rel_path, full_path))
 
     if not test_images:
-        print(f"No images found in {args.test_dir}")
+        print(f"No images found in {args.test_dir} or its subdirectories")
         return
 
     print(f"Found {len(test_images)} images for prediction")
     print("Starting prediction...")
 
     results = []
-    for i, filename in enumerate(test_images, 1):
-        image_path = os.path.join(args.test_dir, filename)
-
+    for i, (rel_filename, full_path) in enumerate(test_images, 1):
         # 预测
-        is_curve, confidence = detector.predict_single(image_path)
+        is_curve, confidence = detector.predict_single(full_path)
 
         # 决定最终分类（基于置信度阈值）
         final_prediction = 1 if confidence > args.confidence_threshold else 0
@@ -134,21 +140,25 @@ def main():
             curve_status = "Non-curve"
 
         # 生成新的文件名（包含置信度信息）
-        name, ext = os.path.splitext(filename)
+        # 将路径中的分隔符替换为下划线，避免创建子目录
+        safe_filename = (
+            rel_filename.replace(os.path.sep, '_').replace('/', '_').replace('\\', '_')
+        )
+        name, ext = os.path.splitext(safe_filename)
         new_filename = f"{name}_conf{confidence:.2f}{ext}"
         dest_path = os.path.join(dest_dir, new_filename)
 
         # 复制文件
-        shutil.copy2(image_path, dest_path)
+        shutil.copy2(full_path, dest_path)
 
         # 修改这里：现在有5个值
         # (原始文件名, is_curve, 置信度, 曲线类型, 保存后的文件名)
         results.append(
-            (filename, final_prediction, confidence, curve_status, new_filename)
+            (rel_filename, final_prediction, confidence, curve_status, new_filename)
         )
 
         print(
-            f"[{i}/{len(test_images)}] {filename}: {curve_status} (Confidence: {confidence:.2%})"
+            f"[{i}/{len(test_images)}] {rel_filename}: {curve_status} (Confidence: {confidence:.2%})"
         )
 
     # 生成分析报告
