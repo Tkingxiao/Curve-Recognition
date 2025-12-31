@@ -221,8 +221,7 @@ class AdvancedCurveGenerator:
             sigma_0 = random.uniform(100, 300)
             n = random.uniform(0.1, 0.3)  # 硬化指数
 
-            stress = sigma_0 * (1 + E / strain_0 * strain) ** n
-            strain_0 = sigma_0 / E
+            stress = sigma_0 * (1 + E / sigma_0 * strain) ** n
 
         elif material_type == "rubber":
             # 橡胶 - 超弹性
